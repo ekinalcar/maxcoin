@@ -1,5 +1,6 @@
 // request is a module that makes http calls easier
 const request = require('request');
+const redis = require('redis');
 
 const MongoClient = require('mongodb').MongoClient;
 const dsn = 'mongodb://localhost:37017/maxcoin';
@@ -24,7 +25,7 @@ function insertMongodb(collection, data) {
     return Promise.all(promisedInserts);
 }
 
-MongoClient.connect(dsn,{ useNewUrlParser: true }, (err, client) => {
+MongoClient.connect(dsn, {useNewUrlParser: true, useUnifiedTopology: true}, (err, client) => {
     if (err) throw err;
     console.log('connected to the db');
 
@@ -34,19 +35,51 @@ MongoClient.connect(dsn,{ useNewUrlParser: true }, (err, client) => {
     fetchFromAPI((err, data) => {
         if (err) throw err;
         insertMongodb(collection, data.bpi)
-        .then((result) => {
-            console.log(`Successfully inserted ${result.length} documents into mongodb`);
-            const options = {'sort': [['value','desc']]};
-            collection.findOne({},options, (err, doc) =>{
-                if (err) throw err;
-                console.log(`MongoDb: the one month max value is ${doc.value} and it was reached on ${doc.date}`);
-                client.close();
-            });
-        }).catch((err) =>{
+            .then((result) => {
+                console.log(`Successfully inserted ${result.length} documents into mongodb`);
+                const options = {'sort': [['value', 'desc']]};
+                collection.findOne({}, options, (err, doc) => {
+                    if (err) throw err;
+                    console.log(`MongoDb: the one month max value is ${doc.value} and it was reached on ${doc.date}`);
+                    client.close();
+                });
+            }).catch((err) => {
             console.log(err);
             process.exit();
         });
     });
 });
+
+function insertRedis(client, data, callback) {
+    const values = ['values'];
+
+    Object.keys(data).forEach((key) => {
+        values.push(data[key]);
+        values.push(key);
+    });
+    client.zadd(values, callback);
+}
+
+const redisClient = redis.createClient(7379);
+redisClient.on('connect', () => {
+    console.log('redis connected');
+
+    fetchFromAPI((err, data) => {
+        if (err) throw err;
+
+        insertRedis(redisClient, data.bpi, (err, results) => {
+            if (err) throw err;
+            console.log(`Successfully inserted ${results} key/value pairs into redis`);
+
+            redisClient.zrange('values', -1, -1, 'withscores', (err, result) => {
+                if (err) throw err;
+                console.log(`REDIS: the one month max value is ${result[1]} and it was reached on ${result[0]}`);
+                redisClient.end();
+            });
+        });
+    });
+});
+
+
 
 
