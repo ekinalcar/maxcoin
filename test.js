@@ -80,6 +80,19 @@ redisClient.on('connect', () => {
     });
 });
 
+function insertMySql(connection, data, callback) {
+    const values = [];
+
+    const sql = 'INSERT INTO coinvalues (valuedate,coinvalue) VALUES ? ';
+
+    Object.keys(data).forEach((key) => {
+        values.push([key, data[key]]);
+    });
+
+    connection.query(sql, [values], callback);
+
+}
+
 const connection = mysql.createConnection({
     host: '127.0.0.1',
     port: '3406',
@@ -91,7 +104,21 @@ const connection = mysql.createConnection({
 connection.connect((err) => {
     if (err) throw err;
     console.log('connected to mysql');
-    connection.end();
+
+    fetchFromAPI((err, data) => {
+        if (err) throw err;
+
+        insertMySql(connection, data.bpi, (err, results) => {
+            if (err) throw err;
+            console.log(`Successfully inserted ${results.affectedRows} documents into MySql`);
+
+            connection.query('SELECT * FROM coinvalues ORDER BY coinvalue DESC LIMIT 0,1', (err, results, fields) => {
+                if (err) throw err;
+                console.log(`MySql: the one month max value is ${results[0].coinvalue} and it was reached on ${results[0].valuedate}`);
+                connection.end();
+            });
+        });
+    });
 });
 
 
