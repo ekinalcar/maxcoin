@@ -1,7 +1,7 @@
 // request is a module that makes http calls easier
 const request = require('request');
 const redis = require('redis');
-
+const mysql = require('mysql2');
 const MongoClient = require('mongodb').MongoClient;
 const dsn = 'mongodb://localhost:37017/maxcoin';
 
@@ -74,10 +74,24 @@ redisClient.on('connect', () => {
             redisClient.zrange('values', -1, -1, 'withscores', (err, result) => {
                 if (err) throw err;
                 console.log(`REDIS: the one month max value is ${result[1]} and it was reached on ${result[0]}`);
-                redisClient.end();
+                redisClient.end(true);
             });
         });
     });
+});
+
+const connection = mysql.createConnection({
+    host: '127.0.0.1',
+    port: '3406',
+    user: 'root',
+    password: 'mypassword',
+    database: 'maxcoin',
+});
+
+connection.connect((err) => {
+    if (err) throw err;
+    console.log('connected to mysql');
+    connection.end();
 });
 
 

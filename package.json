@@ -10,7 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "mongodb": "^3.3.2",
+    "mysql2": "^1.7.0",
     "redis": "^2.8.0",
-    "request": "^2.83.0"
+    "request": "^2.88.0"
   }
 }
